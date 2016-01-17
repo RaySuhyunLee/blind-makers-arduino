@@ -1,15 +1,21 @@
 #include "HX711.h"
+#include <elapsedMillis.h>
 
-/*----- 로드셀 -----*/
+/*------ 로드셀 ------*/
 #define DOUT  53
 #define CLK  51
 #define TRUE 49
 
 float zero;
 
+/*------ 시리얼 통신 ------*/
+elapsedMillis timerSerial;
+#define interval 500;
+
 HX711 scale(DOUT, CLK);
 
-/* */
+/*------ 제어 ------*/
+boolean isAuto = false;
 
 void setup() {
   // put your setup code here, to run once
@@ -19,16 +25,29 @@ void setup() {
 }
 
 void loop() {
-  Serial.print(getWeight());
-  Serial.print(',');
-  Serial.print(getBattery());
-  Serial.println(';');
-
-  delay(10);
+  if (timerSerial > interval) {
+    timerSerial -= interval;
+    sendSerial();
+  }
 }
 
-boolean isAuto() {
-  // TODO check distance sensor value
+void checkIsAuto() {
+  while (Serial.available()) {
+    char buf = Serial.read();
+    if (buf == 'a') {
+      isAuto = true;
+    } else if (buf == 's') {
+      isAuto = false;
+    }
+  }
+}
+
+void sendSerial() {
+    Serial.print("s");
+    Serial.print(getWeight());
+    Serial.print(',');
+    Serial.print(getBattery());
+    Serial.println(';');
 }
 
 void initWeight() {
@@ -38,11 +57,12 @@ void initWeight() {
 
   scale.set_scale(-14000);
   scale.tare();  //Reset the scale to 0
-  zero = scale.get_units();
 }
 
 float getWeight() {
-  return scale.get_units() - zero;
+  scale.power_up();
+  float value = scale.get_units(10);
+  scale.power_down();
 }
 
 float getBattery() {
